@@ -16,7 +16,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({
   subtitle,
   imageUrl,
   onPress,
-  backgroundColor = '#22c55e',
+  backgroundColor = '#000000',
   textColor = '#ffffff'
 }) => {
   return (
@@ -34,11 +34,6 @@ const HeroBanner: React.FC<HeroBannerProps> = ({
             <MaterialCommunityIcons name="arrow-right" size={16} color={textColor} />
           </View>
         </View>
-        {imageUrl && (
-          <View style={styles.imageContainer}>
-            <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="contain" />
-          </View>
-        )}
       </View>
     </TouchableOpacity>
   );

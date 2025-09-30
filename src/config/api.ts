@@ -11,10 +11,18 @@ const getApiBaseUrl = () => {
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    // Development environment - use environment variable or fallback
-    const apiUrl = process.env.EXPO_PUBLIC_DEV_API_URL || 'http://192.168.172.96:3000';
-    console.log('🔗 Development API URL:', apiUrl, 'Platform:', Platform.OS);
-    return apiUrl;
+    // Development environment - platform-specific URLs
+    if (Platform.OS === 'android') {
+      // Android emulator uses 10.0.2.2 to reach host machine
+      const apiUrl = process.env.EXPO_PUBLIC_DEV_API_URL || 'http://10.0.2.2:3000';
+      console.log('🔗 Android Development API URL:', apiUrl, 'Platform:', Platform.OS);
+      return apiUrl;
+    } else {
+      // iOS simulator and web use localhost or host IP
+      const apiUrl = process.env.EXPO_PUBLIC_DEV_API_URL || 'http://localhost:3000';
+      console.log('🔗 iOS/Web Development API URL:', apiUrl, 'Platform:', Platform.OS);
+      return apiUrl;
+    }
   }
 
   // Production - use environment variable or fallback
@@ -610,15 +618,19 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      // Skip token check for login and logout endpoints
-      const isLoginEndpoint = config.url?.includes('/login') || config.url?.includes('/register') || config.url?.includes('/refresh-token') || config.url?.includes('/auth/logout');
+      // Skip token check for login, logout, and OTP endpoints (no authentication required)
+      const isUnauthenticatedEndpoint = config.url?.includes('/login') ||
+        config.url?.includes('/register') ||
+        config.url?.includes('/refresh-token') ||
+        config.url?.includes('/auth/logout') ||
+        config.url?.includes('/otp/');
 
-      if (isLoginEndpoint) {
+      if (isUnauthenticatedEndpoint) {
         return config;
       }
 
-      // Check cache first for GET requests (skip for auth-related endpoints)
-      if (config.method === 'get' && !config.url?.includes('/auth/')) {
+      // Check cache first for GET requests (skip for auth and OTP endpoints)
+      if (config.method === 'get' && !config.url?.includes('/auth/') && !config.url?.includes('/otp/')) {
         const cachedResponse = getCachedRequest(config.url!, config.params);
         if (cachedResponse) {
           console.log(`📦 [${config.url}] Using cached response`);
@@ -1053,6 +1065,10 @@ export const deleteAppOrder = (orderId: string) => api.delete(`/orders/${orderId
 export const getOrderTrackingInfo = (orderId: string) => api.get(`/order/${orderId}/tracking`);
 export const confirmDeliveryReceipt = (orderId: string) => api.patch(`/order/${orderId}/confirm-receipt`); // New API call
 
+// Cancel order
+export const cancelOrder = (orderId: string, reason: string) => 
+  api.post(`/order/${orderId}/cancel`, { reason, cancelledBy: 'customer' });
+
 // Google Maps Directions API
 export const getGoogleMapsDirections = (orderId: string, origin: any, destination: any, routeType?: string, updateOrder?: boolean) =>
   api.post(`/order/${orderId}/google-directions`, { origin, destination, routeType, updateOrder });
@@ -1082,5 +1098,10 @@ export const getFeaturedProducts = (params?: any) => api.get('/featured', { para
 export const getRelatedProducts = (productId: string, params?: any) => api.get(`/product/${productId}/related`, { params });
 export const getProductVariants = (productId: string) => api.get(`/product/${productId}/variants`);
 export const getProductsByIds = (productIds: string[]) => api.post('/products/by-ids', { ids: productIds });
+
+// OTP Routes (MSG91)
+export const sendOTP = (phoneNumber: string) => api.post('/otp/send', { phoneNumber });
+export const verifyOTP = (phoneNumber: string, otp: string) => api.post('/otp/verify', { phoneNumber, otp });
+export const resendOTP = (phoneNumber: string) => api.post('/otp/resend', { phoneNumber });
 
 

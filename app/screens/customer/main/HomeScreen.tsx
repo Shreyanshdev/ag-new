@@ -6,7 +6,8 @@ import {
   RefreshControl,
   View,
   Text,
-  FlatList
+  FlatList,
+  StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -262,6 +263,14 @@ const HomeScreen: React.FC = () => {
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.safeArea}>
+        {/* Configure status bar for Android */}
+        {Platform.OS === 'android' && (
+          <StatusBar
+            backgroundColor="transparent"
+            barStyle="dark-content"
+            translucent={true}
+          />
+        )}
         <TopBar />
         <SearchBar
           searchQuery={searchQuery}
@@ -360,7 +369,7 @@ const HomeScreen: React.FC = () => {
 
         {/* Floating Cart */}
         <ErrorBoundary>
-          <FloatingCart />
+          <FloatingCart marginBottom={Platform.OS === 'ios' ? 60 : 85}/>
         </ErrorBoundary>
       </SafeAreaView>
     </ErrorBoundary>
@@ -370,10 +379,11 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: Platform.OS === 'android' ? 'transparent' : '#ffffff',
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#ffffff',
   },
   scrollViewContent: {
     paddingBottom: 100,

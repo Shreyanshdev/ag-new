@@ -310,12 +310,12 @@ const ProfileScreen = () => {
 
           <TouchableOpacity
             style={styles.detailRow}
-            onPress={() => console.log('Support pressed')}
+            onPress={() => (navigation as any).navigate("screens/customer/profile/HelpSupportScreen")}
           >
             <MaterialCommunityIcons name="help-circle" size={24} color="#22c55e" />
             <View style={styles.detailTextContainer}>
-              <Text style={styles.detailLabel}>Support</Text>
-              <Text style={styles.detailValue}>Get help and support</Text>
+              <Text style={styles.detailLabel}>Help & Support</Text>
+              <Text style={styles.detailValue}>Get help, contact us, and find branches</Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={20} color="#6b7280" />
           </TouchableOpacity>

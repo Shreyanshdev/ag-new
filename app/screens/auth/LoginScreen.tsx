@@ -12,8 +12,9 @@ import {
   StatusBar,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { customerLogin, deliveryLogin } from '../../../src/config/api';
+import { customerLogin, deliveryLogin, sendOTP, verifyOTP, resendOTP } from '../../../src/config/api';
 import { useRouter } from 'expo-router';
+import OtpInput from '../../components/auth/OtpInput';
 
 const LoginScreen = () => {
   const router = useRouter();
@@ -26,19 +27,130 @@ const LoginScreen = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async () => {
-    setError(null);
-    setLoading(true);
-    let payload: object;
+  // OTP verification states
+  const [showOtpInput, setShowOtpInput] = useState<boolean>(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSent, setOtpSent] = useState<boolean>(false);
 
-    if (loginType === 'customer') {
-      if (!phoneNumber || phoneNumber.length !== 10 || !/^\d+$/.test(phoneNumber)) {
-        setError('Please enter a valid 10-digit phone number.');
-        setLoading(false);
-        return;
+  const handleSendOtp = async () => {
+    setError(null);
+    setOtpError(null);
+
+    if (!phoneNumber || phoneNumber.length !== 10 || !/^\d+$/.test(phoneNumber)) {
+      setError('Please enter a valid 10-digit phone number.');
+      return;
+    }
+
+    // Ensure phone number starts with valid digit for India
+    const validStarts = ['6', '7', '8', '9'];
+    if (!validStarts.includes(phoneNumber.charAt(0))) {
+      setError('Please enter a valid Indian mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Send OTP via MSG91 API
+      console.log('📱 Sending OTP via MSG91...');
+      const response = await sendOTP(phoneNumber);
+
+      if (response.data?.success) {
+        setShowOtpInput(true);
+        setOtpSent(true);
+        console.log('✅ OTP sent successfully via MSG91');
+      } else {
+        throw new Error(response.data?.message || 'Failed to send OTP');
       }
-      payload = { phone: phoneNumber };
+
+    } catch (error: any) {
+      console.error('❌ Error sending OTP:', error);
+      setError(error.response?.data?.message || error.message || 'Failed to send OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpVerify = async (otp: string): Promise<boolean> => {
+    if (!otpSent) {
+      setOtpError('Please request OTP first.');
+      return false;
+    }
+
+    setOtpError(null);
+
+    try {
+      // Verify OTP with backend (which uses MSG91)
+      console.log('🔐 Verifying OTP with backend...');
+      const response = await verifyOTP(phoneNumber, otp);
+
+      if (response.data?.success) {
+        console.log('✅ OTP verified successfully');
+
+        // OTP verified, now login with backend
+        const payload = { phone: phoneNumber, otp: otp };
+        const loginResponse = await customerLogin(payload);
+
+        if (loginResponse.status === 200) {
+          console.log('✅ Customer login successful');
+
+          // Navigate to home
+          router.replace('/');
+          return true;
+        } else {
+          setOtpError(loginResponse.data?.message || 'Login failed. Please check your credentials.');
+          return false;
+        }
+      } else {
+        setOtpError(response.data?.message || 'Invalid OTP. Please try again.');
+        return false;
+      }
+    } catch (error: any) {
+      console.error('❌ OTP verification error:', error);
+      setOtpError(error.response?.data?.message || error.message || 'Invalid OTP. Please try again.');
+      return false;
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpError(null);
+    setOtpSent(false);
+
+    if (!phoneNumber || phoneNumber.length !== 10 || !/^\d+$/.test(phoneNumber)) {
+      setError('Please enter a valid 10-digit phone number.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Resend OTP via MSG91 API
+      console.log('📱 Resending OTP via MSG91...');
+      const response = await resendOTP(phoneNumber);
+
+      if (response.data?.success) {
+        setOtpSent(true);
+        console.log('✅ OTP resent successfully via MSG91');
+      } else {
+        throw new Error(response.data?.message || 'Failed to resend OTP');
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error resending OTP:', error);
+      setError(error.response?.data?.message || error.message || 'Failed to resend OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (loginType === 'customer') {
+      await handleSendOtp();
     } else {
+      // Delivery partner login (existing logic)
+      setError(null);
+      setLoading(true);
+
       if (!email || !password) {
         setError('Please enter both email and password.');
         setLoading(false);
@@ -49,36 +161,24 @@ const LoginScreen = () => {
         setLoading(false);
         return;
       }
-      payload = { email, password };
-    }
 
-    try {
-      let response;
-      if (loginType === 'customer') {
-        response = await customerLogin(payload);
-      } else {
-        response = await deliveryLogin(payload);
-      }
-      const data = response.data;
+      try {
+        const response = await deliveryLogin({ email, password });
+        const data = response.data;
 
-      if (response.status === 200) {
-        console.log(`✅ ${loginType} login successful`);
-
-        // Token storage is now handled by the API functions
-        if (loginType === 'customer') {
-          router.replace('/');
-        } else {
+        if (response.status === 200) {
+          console.log('✅ Delivery partner login successful');
           router.replace('/screens/deliveryPartner/DeliveryOrderScreen');
+          return;
+        } else {
+          setError(data.message || 'Login failed. Please check your credentials.');
         }
-        return;
-      } else {
-        setError(data.message || 'Login failed. Please check your credentials.');
+      } catch (e) {
+        console.error('Network or unexpected error:', e);
+        setError('Could not connect to the server. Please check your internet connection.');
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.error('Network or unexpected error:', e);
-      setError('Could not connect to the server. Please check your internet connection.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -224,24 +324,49 @@ const LoginScreen = () => {
               </View>
             )}
 
+            {/* OTP Input for Customer */}
+            {showOtpInput && loginType === 'customer' && (
+              <View style={styles.otpSection}>
+                <OtpInput
+                  phoneNumber={phoneNumber}
+                  onOtpVerify={handleOtpVerify}
+                  onResendOtp={handleResendOtp}
+                  loading={loading}
+                  error={otpError}
+                />
+                <TouchableOpacity
+                  style={styles.backToLoginButton}
+                  onPress={() => {
+                    setShowOtpInput(false);
+                    setOtpError(null);
+                    setOtpSent(false);
+                  }}
+                >
+                  <Text style={styles.backToLoginText}>Back to Login</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Login Button */}
-            <TouchableOpacity
-              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <>
-                  <Text style={styles.loginButtonText}>
-                    {loginType === 'customer' ? 'Send OTP' : 'Sign In'}
-                  </Text>
-                  <Feather name="arrow-right" size={18} color="#ffffff" />
-                </>
-              )}
-            </TouchableOpacity>
+            {!showOtpInput && (
+              <TouchableOpacity
+                style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+                onPress={handleLogin}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.loginButtonText}>
+                      {loginType === 'customer' ? 'Send OTP' : 'Sign In'}
+                    </Text>
+                    <Feather name="arrow-right" size={18} color="#ffffff" />
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Footer */}
@@ -263,6 +388,7 @@ const LoginScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
     </View>
   );
 };
@@ -430,6 +556,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     flex: 1,
+  },
+
+  // OTP Section
+  otpSection: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+
+  // Back to Login Button
+  backToLoginButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+  backToLoginText: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // Login Button

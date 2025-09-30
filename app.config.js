@@ -1,23 +1,26 @@
 export default {
   expo: {
     name: "agstore",
-    slug: "agstore",
+    slug: "agstore-v2",
     version: "1.0.0",
+    owner: "vasuji",
     orientation: "portrait",
-    icon: "./assets/images/icon.png",
+    icon: "./assets/images/agstore-logo-transparent.png",
     scheme: "agstore",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.anonymous.agstore",
+      icon: "./assets/images/agstore-logo-transparent.png",
       config: {
         googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
       }
     },
     android: {
+      icon: "./assets/images/agstore-logo-transparent.png",
       adaptiveIcon: {
-        foregroundImage: "./assets/images/adaptive-icon.png",
+        foregroundImage: "./assets/images/agstore-logo-transparent.png",
         backgroundColor: "#ffffff"
       },
       config: {
@@ -31,7 +34,7 @@ export default {
     web: {
       bundler: "metro",
       output: "static",
-      favicon: "./assets/images/favicon.png"
+      favicon: "./assets/images/agstore-logo-transparent.png"
     },
     plugins: [
       "expo-router",
@@ -44,8 +47,8 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
+          image: "./assets/images/agstore-story.png",
+          imageWidth: 300,
           resizeMode: "contain",
           backgroundColor: "#ffffff"
         }
@@ -57,8 +60,8 @@ export default {
     extra: {
       router: {},
       eas: {
-        projectId: "a136b00b-e497-4d3e-b018-dff465ef3cfd"
-      }
+        projectId: "55b933c8-2485-4ae0-9f26-99a8614f2f9a",
+      },
     }
   }
 };

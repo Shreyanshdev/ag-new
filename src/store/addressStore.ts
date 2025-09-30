@@ -541,6 +541,19 @@ export const useAddressStore = create<AddressStore>()(
       notifySubscribers: (event: AddressChangeEvent) => {
         console.log('🏠 AddressStore: Notifying subscribers of event:', event.type, 'subscribers:', subscribers.size);
         
+        // Notify branch context when addresses are added, updated, or selected
+        if ((event.type === 'ADDED' || event.type === 'UPDATED' || event.type === 'SELECTED') && event.address) {
+          console.log('🌿 AddressStore: Notifying branch context of address change:', event.type, event.address.addressLine1);
+          try {
+            // Check if branch context handler is available
+            if (typeof window !== 'undefined' && (window as any).__BRANCH_CONTEXT_HANDLER__) {
+              (window as any).__BRANCH_CONTEXT_HANDLER__(event.address);
+            }
+          } catch (error) {
+            console.warn('🌿 AddressStore: Error notifying branch context:', error);
+          }
+        }
+        
         subscribers.forEach(callback => {
           try {
             callback(event);

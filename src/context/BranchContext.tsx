@@ -5,6 +5,7 @@ export type Branch = {
   _id: string;
   name: string;
   address: string;
+  phone?: string;
   location: {
     latitude: number;
     longitude: number;
@@ -26,6 +27,8 @@ type BranchContextType = {
   clearError: () => void;
   // Add function to manually trigger branch availability check
   refreshBranchAvailability: () => Promise<void>;
+  // Add function to refresh branch availability for a specific address
+  refreshBranchAvailabilityForAddress: (address: any) => Promise<void>;
   clearBranches: () => void;
 };
 
@@ -114,19 +117,23 @@ export const BranchProvider = ({ children }: { children: ReactNode }) => {
       if (nearest && minDistance <= 30) {
         setNearestBranch(nearest);
         setBranchDistance(minDistance);
-        // Auto-select the nearest branch if none is selected
-        if (!selectedBranch) {
-          setSelectedBranch(nearest);
-        }
+        // Always update to the nearest branch when address changes
+        console.log('🌿 BranchContext: Setting nearest branch as selected:', nearest.name);
+        setSelectedBranch(nearest);
         return nearest;
       }
 
+      // Clear selected branch if no branch is available within 30km
+      console.log('🌿 BranchContext: No branch available within 30km, clearing selection');
+      setNearestBranch(null);
+      setBranchDistance(null);
+      setSelectedBranch(null);
       return null;
     } catch (err) {
       console.error('Error finding nearest branch:', err);
       return null;
     }
-  }, [branches, calculateDistance, fetchBranches, selectedBranch]);
+  }, [branches, calculateDistance, fetchBranches]);
 
   // Check if any branch is available within 30km of the address
   const checkBranchAvailability = useCallback(async (addressLat: number, addressLng: number): Promise<boolean> => {
@@ -172,6 +179,16 @@ export const BranchProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentAddressCoords, checkBranchAvailability]);
 
+  // Function to refresh branch availability for a specific address
+  const refreshBranchAvailabilityForAddress = useCallback(async (address: any) => {
+    if (address && address.latitude && address.longitude) {
+      console.log('🌿 BranchContext: Refreshing branch availability for specific address:', address.addressLine1);
+      await checkBranchAvailability(address.latitude, address.longitude);
+    } else {
+      console.log('🌿 BranchContext: Invalid address provided for branch availability refresh');
+    }
+  }, [checkBranchAvailability]);
+
   // Load branches on mount
   useEffect(() => {
     fetchBranches();
@@ -186,12 +203,14 @@ export const BranchProvider = ({ children }: { children: ReactNode }) => {
       console.log('🌿 BranchContext: Address changed, refreshing branch availability...', {
         address: address.addressLine1 || 'Unknown',
         lat: address.latitude,
-        lng: address.longitude
+        lng: address.longitude,
+        isDefault: address.isDefault || false
       });
       
       setCurrentAddressCoords(newCoords);
       checkBranchAvailability(address.latitude, address.longitude);
     } else {
+      console.log('🌿 BranchContext: Address change received but no valid coordinates, clearing branch availability');
       setCurrentAddressCoords(null);
       setIsBranchAvailable(false);
       setNearestBranch(null);
@@ -235,6 +254,7 @@ export const BranchProvider = ({ children }: { children: ReactNode }) => {
       checkBranchAvailability,
       clearError,
       refreshBranchAvailability,
+      refreshBranchAvailabilityForAddress,
       clearBranches,
     }}>
       {children}

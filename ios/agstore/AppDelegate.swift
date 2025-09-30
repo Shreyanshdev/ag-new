@@ -1,7 +1,6 @@
 import Expo
 import React
 import ReactAppDependencyProvider
-import GoogleMaps
 
 // @generated begin react-native-maps-import - expo prebuild (DO NOT MODIFY) sync-bee50fec513f89284e0fa3f5d935afdde33af98f
 #if canImport(GoogleMaps)
@@ -19,13 +18,6 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    // Initialize Google Maps
-    if let path = Bundle.main.path(forResource: "Info", ofType: "plist"),
-       let plist = NSDictionary(contentsOfFile: path),
-       let apiKey = plist["GMSApiKey"] as? String {
-      GMSServices.provideAPIKey(apiKey)
-    }
-    
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()

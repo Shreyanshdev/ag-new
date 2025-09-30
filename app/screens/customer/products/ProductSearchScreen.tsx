@@ -27,12 +27,12 @@ type NavigationProps = NativeStackNavigationProp<RootStackParamList>;
 
 // --- Predefined Filter Options ---
 const PREDEFINED_FILTERS = [
-  { id: 'milk', label: 'Milk', icon: 'cup', color: '#22c55e' },
-  { id: 'ghee', label: 'Ghee', icon: 'food', color: '#f59e0b' },
-  { id: 'doodh', label: 'Doodh', icon: 'cup-outline', color: '#3b82f6' },
-  { id: 'curd', label: 'Curd', icon: 'bowl-mix', color: '#8b5cf6' },
-  { id: 'paneer', label: 'Paneer', icon: 'cheese', color: '#ef4444' },
-  { id: 'butter', label: 'Butter', icon: 'food-variant', color: '#f97316' },
+  { id: 'oil', label: 'Oil', icon: 'bottle-tonic', color: '#f59e0b' },
+  { id: 'soap', label: 'Soap', icon: 'hand-wash', color: '#22c55e' },
+  { id: 'detergent', label: 'Detergent', icon: 'washing-machine', color: '#3b82f6' },
+  { id: 'facewash', label: 'Facewash', icon: 'face-woman', color: '#8b5cf6' },
+  { id: 'shampoo', label: 'Shampoo', icon: 'bottle-wine', color: '#ef4444' },
+  { id: 'toothpaste', label: 'Toothpaste', icon: 'tooth', color: '#06b6d4' },
 ];
 
 // --- Product Search Screen ---
@@ -44,9 +44,8 @@ const ProductSearchScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
   
   // Get user subscription status (you'll need to implement this)
   const userIsSubscribed = false; // TODO: Get from user context
@@ -58,11 +57,15 @@ const ProductSearchScreen = () => {
 
     try {
       const params: any = {
-        q: searchQuery.trim(),
         limit: 50,
         sort: 'createdAt',
         order: 'desc'
       };
+
+      // Add search query if provided
+      if (searchQuery.trim()) {
+        params.q = searchQuery.trim();
+      }
 
       // Add tag filters if any are selected
       if (selectedFilters.length > 0) {
@@ -76,24 +79,18 @@ const ProductSearchScreen = () => {
       const searchResults = data.products || data;
       const dataWithId = searchResults.map((item: { _id: any }) => ({ ...item, id: item._id }));
       setProducts(dataWithId);
-      setHasSearched(true);
     } catch (error) {
       console.error('Error searching products:', error);
-      setError('Failed to search products. Please try again.');
+      setError('Failed to load products. Please try again.');
     } finally {
       setLoading(false);
     }
   }, [searchQuery, selectedFilters]);
 
-  // Search products when query or filters change
+  // Load products initially and when query or filters change
   useEffect(() => {
-    if (searchQuery.trim() || selectedFilters.length > 0) {
-      searchProductsData();
-    } else {
-      setProducts([]);
-      setHasSearched(false);
-    }
-  }, [searchQuery, selectedFilters, searchProductsData]);
+    searchProductsData();
+  }, [searchProductsData]);
 
   const handleFilterToggle = (filterId: string) => {
     setSelectedFilters(prev =>
@@ -139,28 +136,29 @@ const ProductSearchScreen = () => {
   const renderEmptyState = () => {
     if (loading) return null;
 
-    if (!hasSearched) {
-      return (
-        <View style={styles.emptyState}>
-          <MaterialCommunityIcons name="magnify" size={64} color="#d1d5db" />
-          <Text style={styles.emptyStateTitle}>Search Products</Text>
-          <Text style={styles.emptyStateSubtitle}>
-            Search by product name or use filters to find what you&apos;re looking for
-          </Text>
-        </View>
-      );
-    }
+    const hasActiveSearch = searchQuery.trim() || selectedFilters.length > 0;
 
     return (
       <View style={styles.emptyState}>
-        <MaterialCommunityIcons name="package-variant" size={64} color="#d1d5db" />
-        <Text style={styles.emptyStateTitle}>No Products Found</Text>
-        <Text style={styles.emptyStateSubtitle}>
-          Try adjusting your search or filters
+        <MaterialCommunityIcons 
+          name={hasActiveSearch ? "package-variant" : "store"} 
+          size={64} 
+          color="#d1d5db" 
+        />
+        <Text style={styles.emptyStateTitle}>
+          {hasActiveSearch ? "No Products Found" : "No Products Available"}
         </Text>
-        <TouchableOpacity style={styles.clearButton} onPress={clearAllFilters}>
-          <Text style={styles.clearButtonText}>Clear All Filters</Text>
-        </TouchableOpacity>
+        <Text style={styles.emptyStateSubtitle}>
+          {hasActiveSearch 
+            ? "Try adjusting your search or filters to find products"
+            : "Products will appear here when they become available"
+          }
+        </Text>
+        {hasActiveSearch && (
+          <TouchableOpacity style={styles.clearButton} onPress={clearAllFilters}>
+            <Text style={styles.clearButtonText}>Clear All Filters</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -256,24 +254,28 @@ const ProductSearchScreen = () => {
           <>
             <View style={styles.resultsHeader}>
               <Text style={styles.resultsCount}>
-                {products.length} product{products.length !== 1 ? 's' : ''} found
+                {searchQuery.trim() || selectedFilters.length > 0 
+                  ? `${products.length} product${products.length !== 1 ? 's' : ''} found`
+                  : `${products.length} product${products.length !== 1 ? 's' : ''} available`
+                }
               </Text>
             </View>
             <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.productsHorizontalScroll}
-              style={styles.horizontalScrollContainer}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.productsVerticalScroll}
+              style={styles.verticalScrollContainer}
             >
-              {products.map((product, index) => (
-                <View key={product._id || index} style={styles.productWrapper}>
-                  <EnhancedProductCardV2
-                    product={product}
-                    userIsSubscribed={userIsSubscribed}
-                    cartTotal={cartTotal}
-                  />
-                </View>
-              ))}
+              <View style={styles.productsGrid}>
+                {products.map((product, index) => (
+                  <View key={product._id || index} style={styles.productGridItem}>
+                    <EnhancedProductCardV2
+                      product={product}
+                      userIsSubscribed={userIsSubscribed}
+                      cartTotal={cartTotal}
+                    />
+                  </View>
+                ))}
+              </View>
             </ScrollView>
           </>
         ) : (
@@ -474,15 +476,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
-  horizontalScrollContainer: {
-    marginTop: 5,
+  verticalScrollContainer: {
+    flex: 1,
   },
-  productsHorizontalScroll: {
-    paddingVertical: 8,
-    gap: 2,
+  productsVerticalScroll: {
+    padding: 16,
   },
-  productWrapper: {
-    marginRight: 1,
+  productsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  productGridItem: {
+    width: '48%',
+    marginBottom: 16,
   },
   resultsHeader: {
     paddingHorizontal: 16,

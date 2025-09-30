@@ -89,6 +89,7 @@ export default function RootLayout() {
             <Stack.Screen name="screens/deliveryPartner/CurrentOrdersScreen" options={{ headerShown: false, title: 'Current Orders' }} />
             <Stack.Screen name="screens/deliveryPartner/OrderHistoryScreen" options={{ headerShown: false, title: 'Order History' }} />
             <Stack.Screen name="screens/customer/orders/ReviewOrderScreen" options={{ headerShown: false, title: 'Review Order' }} />
+            <Stack.Screen name="screens/customer/orders/InvoiceScreen" options={{ headerShown: false, title: 'Invoice' }} />
           </Stack>
           
       </BranchProvider>

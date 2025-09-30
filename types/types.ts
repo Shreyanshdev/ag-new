@@ -408,6 +408,20 @@ export interface Order {
   items: Item[];
   status: 'pending' | 'accepted' | 'in-progress' | "awaitconfirmation" | 'delivered' | 'cancelled' | string;
   deliveryStatus?: 'Assigning Partner' | 'Partner Assigned' | 'On The Way' | 'Delivered' | 'Cancelled' | string;
+  paymentStatus?: 'pending' | 'verified' | 'failed' | 'refunded' | 'completed';
+  paymentDetails?: {
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+    verifiedAt?: Date | string;
+    amount?: number;
+    currency?: string;
+    method?: string;
+    refundId?: string;
+    refundedAt?: Date | string;
+    refundAmount?: number;
+    refundReason?: string;
+  };
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }

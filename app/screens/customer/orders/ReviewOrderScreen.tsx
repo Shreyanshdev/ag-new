@@ -194,7 +194,7 @@ const ReviewOrderScreen = () => {
   };
 
   const handleContactUs = () => {
-    const phoneNumber = '7884388452';
+    const phoneNumber = '9219488035';
     Linking.openURL(`tel:${phoneNumber}`);
   };
 

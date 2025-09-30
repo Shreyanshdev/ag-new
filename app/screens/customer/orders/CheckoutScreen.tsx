@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, ScrollView
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Platform
 } from 'react-native';
 import { useCart } from '../../../../src/context/CartContext';
 import { useNavigation, useFocusEffect } from 'expo-router';
@@ -520,18 +520,25 @@ const CheckoutScreen = () => {
         {selectedBranch && selectedAddress && isBranchAvailable && mapRegion ? (
           <View style={styles.mapSection}>
             <View style={styles.mapContainer}>
-              <MapView style={styles.map} region={mapRegion}>
+              <MapView 
+                style={styles.map} 
+                region={mapRegion}
+                showsCompass={false}
+                showsScale={false}
+                pitchEnabled={false}
+                rotateEnabled={false}
+                maxZoomLevel={16}
+                minZoomLevel={8}
+              >
                 {selectedAddress?.latitude && selectedAddress?.longitude ? (
                   <Marker
                     coordinate={{
                       latitude: selectedAddress.latitude,
                       longitude: selectedAddress.longitude,
                     }}
-                  >
-                    <View style={[styles.markerContainer, styles.homeMarker]}>
-                      <MaterialCommunityIcons name="home" size={20} color="#fff" />
-                    </View>
-                  </Marker>
+                    pinColor="#ef4444"
+                    title="Delivery Address"
+                  />
                 ) : null}
                 
                 <Marker
@@ -539,11 +546,9 @@ const CheckoutScreen = () => {
                     latitude: selectedBranch.location.latitude,
                     longitude: selectedBranch.location.longitude,
                   }}
-                >
-                  <View style={styles.markerContainer}>
-                    <MaterialCommunityIcons name="store" size={20} color="#fff" />
-                  </View>
-                </Marker>
+                  pinColor="#22c55e"
+                  title="Store Location"
+                />
               </MapView>
             </View>
             <View style={styles.deliveryInfoContainer}>
@@ -782,7 +787,7 @@ const CheckoutScreen = () => {
 // Updated Styles
 const styles = StyleSheet.create({
   // ... [Keep all existing styles and add these new ones] ...
-  safeArea: { flex: 1, backgroundColor: '#ffffff' },
+  safeArea: { flex: 1, backgroundColor: Platform.OS === 'android' ? 'transparent' : '#ffffff' },
   header: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16,
     paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0',

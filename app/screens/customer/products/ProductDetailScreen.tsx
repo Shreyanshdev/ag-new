@@ -77,8 +77,7 @@ const ProductDetailScreen = () => {
     incrementQuantity, 
     decrementQuantity, 
     cart, 
-    totalCost,
-    calculateOptimalPricing 
+    totalCost
   } = useCart();
   
   const [userIsSubscribed, setUserIsSubscribed] = useState(false);
@@ -116,6 +115,36 @@ const ProductDetailScreen = () => {
   // Cart calculations
   const cartItem = product ? cart.find(item => item.productId === product._id) : undefined;
   const quantityInCart = cartItem ? cartItem.quantity : 0;
+
+  // Calculate bundle breakdown for current cart item
+  const getBundleBreakdown = () => {
+    if (!cartItem || !userIsSubscribed || !product || !product.subscriptionPrice || !product.unitPerSubscription) {
+      return null;
+    }
+
+    const quantity = cartItem.quantity;
+    const unitPerSubscription = product.unitPerSubscription;
+    const bundleCount = Math.floor(quantity / unitPerSubscription);
+    const extraUnits = quantity % unitPerSubscription;
+    const retailUnitPrice = product.discountPrice || product.basePrice;
+
+    if (bundleCount === 0) {
+      return null; // No bundles, only individual units
+    }
+
+    return {
+      bundleCount,
+      extraUnits,
+      unitPerSubscription,
+      subscriptionPrice: product.subscriptionPrice,
+      retailUnitPrice,
+      bundleTotal: bundleCount * product.subscriptionPrice,
+      extraTotal: extraUnits * retailUnitPrice,
+      totalUnits: (bundleCount * unitPerSubscription) + extraUnits
+    };
+  };
+
+  const bundleBreakdown = getBundleBreakdown();
 
   // Pricing calculations
  // In ProductDetailScreen.tsx, modify the pricingInfo calculation:
@@ -206,6 +235,38 @@ const pricingInfo: PricingInfo | null = product ? (() => {
     }
 
     addToCart(product, 'wholesale', pricingInfo.unitsPerBundle!, userIsSubscribed, cartTotal);
+  };
+
+  // Handle adding one bundle
+  const handleAddBundle = () => {
+    if (!product || !pricingInfo) return;
+
+    if (product.stock < pricingInfo.unitsPerBundle!) {
+      Alert.alert('Insufficient Stock', `Only ${product.stock} units available, but bundle requires ${pricingInfo.unitsPerBundle}`);
+      return;
+    }
+
+    addToCart(product, 'wholesale', pricingInfo.unitsPerBundle!, userIsSubscribed, cartTotal);
+  };
+
+  // Handle subtracting one bundle
+  const handleSubtractBundle = () => {
+    if (!product || !pricingInfo || !cartItem) return;
+
+    const currentQuantity = cartItem.quantity;
+    const bundleSize = pricingInfo.unitsPerBundle!;
+    
+    if (currentQuantity < bundleSize) {
+      // If current quantity is less than a bundle, remove all units
+      for (let i = 0; i < currentQuantity; i++) {
+        decrementQuantity(product._id);
+      }
+    } else {
+      // Remove one bundle worth of units
+      for (let i = 0; i < bundleSize; i++) {
+        decrementQuantity(product._id);
+      }
+    }
   };
 
   // Render loading state
@@ -427,20 +488,62 @@ const pricingInfo: PricingInfo | null = product ? (() => {
               <Text style={styles.addToCartButtonText}>Add to Cart</Text>
             </TouchableOpacity>
           ) : (
-            <View style={styles.counterContainer}>
-              <TouchableOpacity 
-                onPress={() => decrementQuantity(product._id)} 
-                style={styles.counterButton}
-              >
-                <MaterialCommunityIcons name="minus" size={20} color="#22c55e" />
-              </TouchableOpacity>
-              <Text style={styles.counterText}>{quantityInCart}</Text>
-              <TouchableOpacity 
-                onPress={() => incrementQuantity(product._id)} 
-                style={styles.counterButton}
-              >
-                <MaterialCommunityIcons name="plus" size={20} color="#22c55e" />
-              </TouchableOpacity>
+            <View>
+              <View style={styles.counterContainer}>
+                <TouchableOpacity 
+                  onPress={() => decrementQuantity(product._id)} 
+                  style={styles.counterButton}
+                >
+                  <MaterialCommunityIcons name="minus" size={20} color="#22c55e" />
+                </TouchableOpacity>
+                <Text style={styles.counterText}>{quantityInCart}</Text>
+                <TouchableOpacity 
+                  onPress={() => incrementQuantity(product._id)} 
+                  style={styles.counterButton}
+                >
+                  <MaterialCommunityIcons name="plus" size={20} color="#22c55e" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Bundle/Unit Breakdown for Subscribed Users */}
+              {bundleBreakdown && (
+                <View style={styles.bundleBreakdownContainer}>
+                  <Text style={styles.bundleBreakdownText}>
+                    {bundleBreakdown.bundleCount} bundle{bundleBreakdown.bundleCount > 1 ? 's' : ''} 
+                    ({bundleBreakdown.bundleCount * bundleBreakdown.unitPerSubscription} units)
+                    {bundleBreakdown.extraUnits > 0 && ` + ${bundleBreakdown.extraUnits} extra unit${bundleBreakdown.extraUnits > 1 ? 's' : ''}`}
+                  </Text>
+                  <Text style={styles.bundlePriceText}>
+                    Bundle: ₹{bundleBreakdown.bundleTotal.toFixed(2)}
+                    {bundleBreakdown.extraUnits > 0 && ` + ₹${bundleBreakdown.extraTotal.toFixed(2)}`}
+                  </Text>
+                </View>
+              )}
+
+              {/* Bundle Control Buttons for Subscribed Users */}
+              {userIsSubscribed && pricingInfo?.subscriptionBundlePrice && (
+                <View style={styles.bundleControlsContainer}>
+                  <TouchableOpacity 
+                    onPress={handleSubtractBundle}
+                    style={[styles.bundleControlButton, styles.bundleSubtractButton]}
+                    disabled={quantityInCart === 0}
+                  >
+                    <MaterialCommunityIcons name="package-variant" size={16} color="#fff" />
+                    <MaterialCommunityIcons name="minus" size={12} color="#fff" />
+                    <Text style={styles.bundleControlButtonText}>Bundle</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    onPress={handleAddBundle}
+                    style={[styles.bundleControlButton, styles.bundleAddButton]}
+                    disabled={product.stock < (pricingInfo?.unitsPerBundle || 0)}
+                  >
+                    <MaterialCommunityIcons name="package-variant" size={16} color="#fff" />
+                    <MaterialCommunityIcons name="plus" size={12} color="#fff" />
+                    <Text style={styles.bundleControlButtonText}>Bundle</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -1019,6 +1122,55 @@ bundleInfo: {
     color: '#166534',
     minWidth: 30,
     textAlign: 'center',
+  },
+
+  // Bundle Breakdown Styles
+  bundleBreakdownContainer: {
+    backgroundColor: '#f0fdf4',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#22c55e',
+  },
+  bundleBreakdownText: {
+    fontSize: 11,
+    color: '#166534',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  bundlePriceText: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+  },
+
+  // Bundle Control Buttons Styles
+  bundleControlsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  bundleControlButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    gap: 4,
+  },
+  bundleAddButton: {
+    backgroundColor: '#059669',
+  },
+  bundleSubtractButton: {
+    backgroundColor: '#dc2626',
+  },
+  bundleControlButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   // Common Sections

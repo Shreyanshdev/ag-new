@@ -7,18 +7,18 @@ import {
   Alert,
   ScrollView,
   TouchableOpacity,
-  RefreshControl
+  RefreshControl,
+  Linking
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getOrderById, API_BASE_URL, confirmDeliveryReceipt } from '../../../../src/config/api';
+import { getOrderById, API_BASE_URL, confirmDeliveryReceipt, cancelOrder } from '../../../../src/config/api';
 import io from 'socket.io-client';
 import { Order } from '../../../../types/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { Linking } from 'react-native';
 
 
 
@@ -65,23 +65,33 @@ const OrderTrackingScreen = () => {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const router = useRouter();
 
-  // Early return if orderId is missing
-  if (!orderId) {
-    console.error('❌ OrderTrackingScreen: orderId is missing from params');
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ fontSize: 18, color: '#ef4444', textAlign: 'center' }}>
-          Error: Order ID is missing. Please try again.
-        </Text>
-        <TouchableOpacity
-          style={{ marginTop: 20, padding: 10, backgroundColor: '#22c55e', borderRadius: 8 }}
-          onPress={() => router.back()}
-        >
-          <Text style={{ color: 'white', fontWeight: 'bold' }}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // ALL HOOKS MUST BE DECLARED FIRST
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [, setUserId] = useState<string | null>(null);
+  const [deliveryPartnerLocation, setDeliveryPartnerLocation] = useState({
+    latitude: 37.78825,
+    longitude: -122.4324
+  });
+  const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [estimatedTime, setEstimatedTime] = useState<string>('Estimating...');
+  const [estimatedDistance, setEstimatedDistance] = useState<string>('Calculating...');
+  const [branchToPartnerRoute, setBranchToPartnerRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [partnerToCustomerRoute, setPartnerToCustomerRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 37.78825,
+    longitude: -122.4324,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  });
+  const mapRef = useRef<MapView>(null);
+  const locationUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const updateRouteRef = useRef<typeof updateRoute | null>(null);
+  const [currentZoom, setCurrentZoom] = useState(0.01);
+  const [orderStartTime, setOrderStartTime] = useState<Date | null>(null);
+  const [totalTime, setTotalTime] = useState<string>('Calculating...');
+  const [userIsSubscribed, setUserIsSubscribed] = useState(false);
 
   console.log('✅ OrderTrackingScreen initialized with orderId:', orderId);
   console.log('🔍 OrderTrackingScreen params:', { orderId });
@@ -142,31 +152,6 @@ const OrderTrackingScreen = () => {
       throw error;
     }
   };
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [, setUserId] = useState<string | null>(null);
-  const [deliveryPartnerLocation, setDeliveryPartnerLocation] = useState({
-    latitude: 37.78825,
-    longitude: -122.4324
-  });
-  const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
-  const [estimatedTime, setEstimatedTime] = useState<string>('Estimating...');
-  const [estimatedDistance, setEstimatedDistance] = useState<string>('Calculating...');
-  const [branchToPartnerRoute, setBranchToPartnerRoute] = useState<{ latitude: number; longitude: number }[]>([]);
-  const [partnerToCustomerRoute, setPartnerToCustomerRoute] = useState<{ latitude: number; longitude: number }[]>([]);
-  const [mapRegion, setMapRegion] = useState({
-    latitude: 37.78825,
-    longitude: -122.4324,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
-  });
-  const mapRef = useRef<MapView>(null);
-  const locationUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const updateRouteRef = useRef<typeof updateRoute | null>(null);
-  const [currentZoom, setCurrentZoom] = useState(0.01); // latitudeDelta for zoom level
-  const [orderStartTime, setOrderStartTime] = useState<Date | null>(null);
-  const [totalTime, setTotalTime] = useState<string>('Calculating...');
 
   // Map control functions
   const centerOnCustomerLocation = () => {
@@ -714,6 +699,20 @@ const OrderTrackingScreen = () => {
     fetchData();
   }, [orderId]);
 
+  // Check subscription status
+  useEffect(() => {
+    const getSubscriptionStatus = async () => {
+      try {
+        const flag = await AsyncStorage.getItem('isSubscription');
+        setUserIsSubscribed(flag === 'true');
+      } catch (error) {
+        console.error('Error loading subscription status:', error);
+        setUserIsSubscribed(false);
+      }
+    };
+    getSubscriptionStatus();
+  }, []);
+
   // Generate routes to show on map based on order status
   useEffect(() => {
     if (!order) {
@@ -758,6 +757,60 @@ const OrderTrackingScreen = () => {
       }
     }
   }, [order, deliveryPartnerLocation]);
+
+  // Early return AFTER all hooks are declared
+  if (!orderId) {
+    console.error('❌ OrderTrackingScreen: orderId is missing from params');
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.noDataContainer}>
+          <MaterialCommunityIcons name="alert-circle" size={64} color="#ef4444" />
+          <Text style={styles.noDataTitle}>Error: Order ID Missing</Text>
+          <Text style={styles.noDataSubtitle}>Please try again from the orders screen.</Text>
+          <TouchableOpacity style={styles.shopButton} onPress={() => router.back()}>
+            <Text style={styles.shopButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Cancel order handler
+  const handleCancelOrder = async () => {
+    if (!order || !orderId) return;
+
+    // Check if order can be cancelled
+    if (['delivered', 'cancelled'].includes(order.status)) {
+      Alert.alert('Cannot Cancel', 'This order cannot be cancelled as it has already been delivered or cancelled.');
+      return;
+    }
+
+    Alert.alert(
+      'Cancel Order',
+      'Are you sure you want to cancel this order? This action cannot be undone.',
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelOrder(orderId as string, 'Customer requested cancellation');
+              Alert.alert('Order Cancelled', 'Your order has been cancelled successfully.');
+              // Navigate back or refresh the order
+              router.back();
+            } catch (error) {
+              console.error('Cancel order error:', error);
+              Alert.alert('Error', 'Failed to cancel order. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -923,6 +976,14 @@ const OrderTrackingScreen = () => {
             <TouchableOpacity style={styles.actionButton} onPress={handleConfirmDelivery}>
               <MaterialCommunityIcons name="check-circle" size={20} color="#fff" />
               <Text style={styles.actionButtonText}>Confirm Delivery</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Cancel Order Button for Non-Subscribed Users */}
+          {!userIsSubscribed && !['delivered', 'cancelled'].includes(order.status) && (
+            <TouchableOpacity style={styles.cancelButton} onPress={handleCancelOrder}>
+              <MaterialCommunityIcons name="close-circle" size={20} color="#fff" />
+              <Text style={styles.cancelButtonText}>Cancel Order</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1186,6 +1247,21 @@ const OrderTrackingScreen = () => {
               <Text style={[styles.detailValue, styles.totalAmount]}>₹{(order.totalPrice + (order.deliveryFee || 0)).toFixed(2)}</Text>
             </View>
           </View>
+
+          {/* Download Invoice Button */}
+          <TouchableOpacity 
+            style={styles.invoiceButton} 
+            onPress={() => {
+              const orderData = JSON.stringify(order);
+              router.push({
+                pathname: '/screens/customer/orders/InvoiceScreen',
+                params: { orderData }
+              });
+            }}
+          >
+            <MaterialCommunityIcons name="file-download" size={20} color="#fff" />
+            <Text style={styles.invoiceButtonText}>Download Invoice</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.divider} />
@@ -1473,6 +1549,42 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   actionButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+    marginLeft: 8,
+  },
+
+  // Cancel button styles
+  cancelButton: {
+    backgroundColor: '#dc2626',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+    marginLeft: 8,
+  },
+
+  // Invoice button styles
+  invoiceButton: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  invoiceButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 15,

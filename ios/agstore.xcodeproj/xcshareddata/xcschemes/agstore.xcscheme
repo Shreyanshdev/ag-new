@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "lush.app"
-               BlueprintName = "lush"
-               ReferencedContainer = "container:lush.xcodeproj">
+               BuildableName = "agstore.app"
+               BlueprintName = "agstore"
+               ReferencedContainer = "container:agstore.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "lushTests.xctest"
-               BlueprintName = "lushTests"
-               ReferencedContainer = "container:lush.xcodeproj">
+               BuildableName = "agstoreTests.xctest"
+               BlueprintName = "agstoreTests"
+               ReferencedContainer = "container:agstore.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "lush.app"
-            BlueprintName = "lush"
-            ReferencedContainer = "container:lush.xcodeproj">
+            BuildableName = "agstore.app"
+            BlueprintName = "agstore"
+            ReferencedContainer = "container:agstore.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "lush.app"
-            BlueprintName = "lush"
-            ReferencedContainer = "container:lush.xcodeproj">
+            BuildableName = "agstore.app"
+            BlueprintName = "agstore"
+            ReferencedContainer = "container:agstore.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
